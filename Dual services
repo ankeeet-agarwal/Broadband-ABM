@@ -1,0 +1,123 @@
+globals [
+    total
+    ]
+
+turtles-own [
+  wtp inc
+  wprice
+  wspeed
+  wlatency
+  wdata
+  error_var
+  utility_one
+  utility_two
+  decisionMade?
+  influenced?
+
+  ;;to be used...
+  wutility
+  wsocial
+  social      ;; of influence, set at initialisation to a random value
+  intention?
+    ]
+
+to setup
+  clear-all
+  create-households
+  setup-households
+  reset-ticks
+end
+
+to create-households
+  ask patches with [(random 100) < density]
+  [
+        ;; make each patch sprout one turtle and set the turtle's colour etc.
+        sprout 1 [
+            set shape "house"
+            set color green
+        ]
+    ]
+end
+
+to setup-households
+  ;; individual turtle initialization
+    ask turtles [assign_weights
+   set inc random-normal mean_income 10000
+    set wtp (inc / 12)* wtp%
+    set error_var random-normal 0 1
+    set decisionMade? false
+    set influenced? false]
+
+  ;;selecting 5% random agents to start diffusion
+    ask n-of (count turtles * 0.05) turtles [ set color yellow utility-calculation-one utility-calculation-two ]
+
+end
+
+to assign_weights
+  let randomNumbers n-values 4 [-> random-float 1]
+    set total sum randomNumbers
+    set randomNumbers map [i -> i / total] randomNumbers
+    set wlatency item 0 randomNumbers
+    set wprice item 1 randomNumbers
+    set wspeed item 2 randomNumbers
+    set wdata item 3 randomNumbers
+end
+
+to utility-calculation-one
+  ;;calculation perceived_utility for each of the randomly selected agents
+  ifelse wtp >= price_blue [set utility_one wspeed * speed_blue - wprice * price_blue + wdata * datacap_blue  ][set utility_one -1]
+end
+
+to utility-calculation-two
+  ;;calculation perceived_utility for each of the randomly selected agents
+  ifelse wtp >= price_red [set utility_two wspeed * speed_red - wprice * price_red + wdata * datacap_red  ][set utility_two -1]
+end
+
+to go
+  if (all? turtles [decisionMade? = true]) [stop]
+  ask turtles[ diffusion infoReceived]
+  if (all? turtles [color = yellow ]) [ask turtles [decision]]
+  ;;if (all? turtles [decisionMade? = true]) [ask turtles [influence]]
+  tick
+end
+
+to diffusion
+  if color = yellow
+  [
+    infoToFamily
+    infoToNeighbors
+  ]
+end
+to infoReceived
+  if utility_one != 0 and utility_two != 0
+  [
+  set color yellow
+  ]
+end
+to infoToFamily
+    ask n-of 3 turtles [utility-calculation-one utility-calculation-two]
+end
+to infoToNeighbors
+  ask turtles-on neighbors
+    [
+      if color = green
+      [
+        utility-calculation-one
+        utility-calculation-two
+      ]
+    ]
+end
+
+to decision
+  if utility_one > 0 and utility_one > utility_two [set color blue]
+  if utility_two > 0 and utility_one < utility_two [set color red]
+  if utility_two > 0 and utility_one > 0 and utility_one = utility_two  [set color one-of[red blue]]
+ set decisionMade? true
+end
+
+to-report potential-adopters_blue
+  report (count turtles with [color = blue] / count turtles) * 100
+end
+to-report potential-adopters_red
+  report (count turtles with [color = red] / count turtles) * 100
+end
